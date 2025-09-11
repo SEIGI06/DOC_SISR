@@ -56,7 +56,9 @@ sudo a2ensite exemple.conf || sudo ln -s /etc/apache2/sites-available/exemple.co
 sudo systemctl reload apache2
 ```
 
-## HTTPS (Let's Encrypt)
+## HTTPS
+
+### Option A — Let's Encrypt (recommandé en production)
 
 Installer Certbot et le module Apache, puis émettre le certificat pour `exemple.com` :
 
@@ -70,6 +72,64 @@ Tester le renouvellement automatique :
 ```bash
 sudo certbot renew --dry-run
 ```
+
+### Option B — Certificat auto-signé (pour tests/lab)
+
+1. Installer OpenSSL et activer SSL pour Apache :
+
+```bash
+sudo apt install openssl -y
+sudo a2enmod ssl
+```
+
+1. Générer une clé privée et un certificat auto-signé (1 an) :
+
+```bash
+sudo openssl req -x509 -nodes -newkey rsa:4096 \
+  -keyout /etc/ssl/private/exemple.key \
+  -out /etc/ssl/certs/exemple.crt \
+  -days 365 \
+  -subj "/C=FR/ST=IDF/L=Paris/O=Lab/CN=exemple.com"
+sudo chmod 600 /etc/ssl/private/exemple.key
+```
+
+1. Créer le vHost 443 et rediriger le HTTP vers HTTPS :
+
+```apache
+<VirtualHost *:80>
+    ServerName exemple.com
+    Redirect / https://exemple.com/
+</VirtualHost>
+
+<IfModule mod_ssl.c>
+<VirtualHost *:443>
+    ServerName exemple.com
+    DocumentRoot /var/www/exemple
+
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/exemple.crt
+    SSLCertificateKeyFile /etc/ssl/private/exemple.key
+
+    <Directory /var/www/exemple>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/exemple_ssl_error.log
+    CustomLog ${APACHE_LOG_DIR}/exemple_ssl_access.log combined
+</VirtualHost>
+</IfModule>
+```
+
+Activer le site SSL et recharger :
+
+```bash
+sudo a2ensite exemple-ssl.conf || true
+sudo systemctl reload apache2
+```
+
+Note : les navigateurs afficheront un avertissement car le certificat n’est pas émis par une AC publique. Pour le supprimer, importez le certificat (ou mieux, une AC interne) dans le magasin de confiance des clients.
 
 ## Sécurisation
 
