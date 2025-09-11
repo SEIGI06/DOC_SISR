@@ -131,6 +131,77 @@ sudo systemctl reload apache2
 
 Note : les navigateurs afficheront un avertissement car le certificat n’est pas émis par une AC publique. Pour le supprimer, importez le certificat (ou mieux, une AC interne) dans le magasin de confiance des clients.
 
+### Option C — Autorité de certification interne (AC privée)
+
+Permet d’émettre des certificats reconnus en interne sans passer par une AC publique.
+
+1. Créer une AC racine (clé et certificat racine)
+
+```bash
+sudo mkdir -p /root/ca/{certs,crl,newcerts,private}
+sudo chmod 700 /root/ca/private
+sudo touch /root/ca/index.txt && echo 1000 | sudo tee /root/ca/serial
+
+# Clé privée de l'AC (protégez-la !) et certificat racine (10 ans)
+sudo openssl genrsa -out /root/ca/private/ca.key 4096
+sudo openssl req -x509 -new -nodes -key /root/ca/private/ca.key -sha256 -days 3650 \
+  -subj "/C=FR/ST=IDF/L=Paris/O=MonEntreprise/CN=MonEntreprise Root CA" \
+  -out /root/ca/certs/ca.crt
+```
+
+1. Générer un certificat serveur signé par l’AC interne
+
+```bash
+# Clé privée serveur et CSR
+sudo openssl genrsa -out /etc/ssl/private/exemple.key 4096
+sudo openssl req -new -key /etc/ssl/private/exemple.key \
+  -subj "/C=FR/ST=IDF/L=Paris/O=MonEntreprise/CN=exemple.com" \
+  -out /tmp/exemple.csr
+
+# Fichier d'extensions pour inclure les SAN
+cat << 'EOF' | sudo tee /tmp/exemple_ext.cnf
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = exemple.com
+DNS.2 = www.exemple.com
+EOF
+
+# Signature par l'AC interne (2 ans)
+sudo openssl x509 -req -in /tmp/exemple.csr -CA /root/ca/certs/ca.crt -CAkey /root/ca/private/ca.key \
+  -CAcreateserial -out /etc/ssl/certs/exemple.crt -days 730 -sha256 -extfile /tmp/exemple_ext.cnf
+```
+
+1. Configurer Apache avec le certificat signé par l’AC interne
+
+```apache
+<VirtualHost *:443>
+    ServerName exemple.com
+    DocumentRoot /var/www/exemple
+
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/exemple.crt
+    SSLCertificateKeyFile /etc/ssl/private/exemple.key
+    SSLCACertificateFile /root/ca/certs/ca.crt
+</VirtualHost>
+```
+
+1. Distribuer la racine de l’AC aux clients internes
+
+- Linux (Debian/Ubuntu) :
+
+```bash
+sudo cp /root/ca/certs/ca.crt /usr/local/share/ca-certificates/monentreprise-root-ca.crt
+sudo update-ca-certificates
+```
+
+- Windows : importer `ca.crt` dans Autorités de certification racines de confiance (via MMC ou GPO).
+
+- Navigateurs/Java : importer dans le magasin de certificats spécifique si nécessaire.
+
 ## Sécurisation
 
 - Mises à jour régulières et sécurité :
