@@ -3,7 +3,7 @@
 
 ## 1. Préparation de la machine CA
 - Configuration IP : /etc/network/interfaces
-![Capture configuration IP de la CA](images/ca_ip_config.png)
+![Capture configuration IP de la CA](images/ca_ip_config.png%20—%20Configuration%20IP%20de%20la%20CA.png)
 ```bash
 allow-hotplug ens33
 iface ens33 inet static
