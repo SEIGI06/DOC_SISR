@@ -1,5 +1,5 @@
 ﻿# Mise en oeuvre de l'HTTPS sur un serveur web
-# Utilisation d'une autoritÃ© de certification interne
+## Utilisation d'une autorité de certification interne
 
 ## 1. PrÃ©paration de la machine CA
 - Configuration IP : /etc/network/interfaces
@@ -11,7 +11,7 @@ iface ens33 inet static
         gateway 172.16.0.254
 ```
 - Installation d'openssl
-![Installation d'OpenSSL sur la CA](images_resized/ca_ip_config.png%20—%20Configuration%20IP%20de%20la%20CA.png)
+![Installation d'OpenSSL sur la CA](images_resized/ca_openssl_install.png)
 ```bash
 apt update && sudo apt upgrade -y
 apt install openssl
